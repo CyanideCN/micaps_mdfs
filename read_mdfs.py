@@ -5,13 +5,15 @@ import struct
 import datetime
 import pickle
 
+import numpy as np
+
 def create_dict(_dict, index):
     if index not in _dict.keys():
         _dict[index] = list()
 
 corr_dtype = {1:'x', 2:'h', 3:'i', 4:'l', 5:'f', 6:'d', 7:'s'}
 corr_size = {1:1, 2:2, 3:4, 4:4, 5:4, 6:8, 7:1}
-buf = open(r'data_table.pickle', 'rb')
+buf = open('data_table.pickle', 'rb')
 var_table = pickle.load(buf)
 buf.close()
 
@@ -25,8 +27,8 @@ class MDFS_Station:
         self.data_dsc = f.read(100).decode('gbk').replace('\x00', '')
         self.level = struct.unpack('f', f.read(4))[0]
         self.level_dsc = f.read(50).decode('gbk').replace('\x00', '')
-        year, month, day, hour, min, sec, tz = struct.unpack('7i', f.read(28))
-        self.utc_time = datetime.datetime(year, month, day, hour, min, sec) - datetime.timedelta(hours=tz)
+        year, month, day, hour, min_, sec, tz = struct.unpack('7i', f.read(28))
+        self.utc_time = datetime.datetime(year, month, day, hour, min_, sec) - datetime.timedelta(hours=tz)
         f.seek(100, 1)#288
         # Data block 1
         station_num = struct.unpack('i', f.read(4))[0] #292
@@ -55,4 +57,45 @@ class MDFS_Station:
                     create_dict(data, var_id)
                     var_value = var_value[0]
                     data[var_id].append(var_value)
+        self.data = data
+
+class MDFS_Grid:
+    def __init__(self, filepath):
+        f = open(filepath, 'rb')
+        if f.read(4).decode() != 'mdfs':
+            raise ValueError('Not valid mdfs data')
+        self.datatype = struct.unpack('h', f.read(2))[0]
+        self.model_name = f.read(20).decode('gbk').replace('\x00', '')
+        self.element = f.read(50).decode('gbk').replace('\x00', '')
+        self.data_dsc = f.read(30).decode('gbk').replace('\x00', '')
+        self.level = struct.unpack('f', f.read(4))
+        year, month, day, hour, tz = struct.unpack('5i', f.read(20))
+        self.utc_time = datetime.datetime(year, month, day, hour) - datetime.timedelta(hours=tz)
+        self.period = struct.unpack('i', f.read(4))
+        start_lon, end_lon, lon_spacing, lon_number = struct.unpack('3fi', f.read(16))
+        start_lat, end_lat, lat_spacing, lat_number = struct.unpack('3fi', f.read(16))
+        lon_array = np.arange(start_lon, end_lon + lon_spacing, lon_spacing)
+        lat_array = np.arange(start_lat, end_lat + lat_spacing, lat_spacing)
+        isoline_start_value, isoline_end_value, isoline_space = struct.unpack('3f', f.read(12))
+        f.seek(100, 1)
+        block_num = lat_number * lon_number
+        data = {}
+        data['Lon'] = lon_array
+        data['Lat'] = lat_array
+        if self.datatype == 4:
+            # Grid form
+            grid = struct.unpack('{}f'.format(block_num), f.read(block_num * 4))
+            grid_array = np.array(data).reshape(lat_number, lon_number)
+            data['Grid'] = grid_array
+        elif self.datatype == 11:
+            # Vector form
+            norm = struct.unpack('{}f'.format(block_num), f.read(block_num * 4))
+            angle = struct.unpack('{}f'.format(block_num), f.read(block_num * 4))
+            norm_array = np.array(norm).reshape(lat_number, lon_number)
+            angle_array = np.array(angle).reshape(lat_number, lon_number)
+            # Convert stupid self-defined angle into corret direction angle
+            corr_angle_array = 270 - angle_array
+            corr_angle_array[corr_angle_array < 0] += 360
+            data['Norm'] = norm_array
+            data['Direction'] = corr_angle_array
         self.data = data

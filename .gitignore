@@ -261,3 +261,4 @@ __pycache__/
 *.pyc
 
 _generate_dtable.py
+example.py
