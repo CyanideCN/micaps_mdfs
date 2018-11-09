@@ -35,9 +35,12 @@ class MDFS_Station:
         # Data block 2
         quantity_num = struct.unpack('h', f.read(2))[0] #294
         x = dict([(struct.unpack('h', f.read(2))[0], struct.unpack('h', f.read(2))[0]) for i in range(quantity_num)])
+        print(x)
         # Data block 3
         data = {}
         for i in ['ID', 'Lon', 'Lat']:
+            create_dict(data, i)
+        for i in x.keys():
             create_dict(data, i)
         for _ in range(station_num):
             stid, stlon, stlat = struct.unpack('iff', f.read(12))
@@ -45,6 +48,7 @@ class MDFS_Station:
             data['Lon'].append(stlon)
             data['Lat'].append(stlat)
             q_num = struct.unpack('h', f.read(2))[0]
+            id_list = list()
             # iterate over q_num
             for __ in range(q_num):
                 var_id = struct.unpack('h', f.read(2))[0]
@@ -52,11 +56,14 @@ class MDFS_Station:
                     var_info = 1
                 else:
                     var_info = var_table[var_id]
+                    id_list.append(var_id)
                 var_value = struct.unpack(corr_dtype[var_info], f.read(corr_size[var_info]))
-                if var_value:
-                    create_dict(data, var_id)
+                if var_value and var_id % 2 != 0:
                     var_value = var_value[0]
                     data[var_id].append(var_value)
+            for i in x.keys():
+                if i not in id_list:
+                    data[i].append(np.nan)
         self.data = data
 
 class MDFS_Grid:
