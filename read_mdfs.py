@@ -92,7 +92,7 @@ class MDFS_Grid:
         if self.datatype == 4:
             # Grid form
             grid = struct.unpack('{}f'.format(block_num), f.read(block_num * 4))
-            grid_array = np.array(data).reshape(lat_number, lon_number)
+            grid_array = np.array(grid).reshape(lat_number, lon_number)
             data['Grid'] = grid_array
         elif self.datatype == 11:
             # Vector form
@@ -100,7 +100,7 @@ class MDFS_Grid:
             angle = struct.unpack('{}f'.format(block_num), f.read(block_num * 4))
             norm_array = np.array(norm).reshape(lat_number, lon_number)
             angle_array = np.array(angle).reshape(lat_number, lon_number)
-            # Convert stupid self-defined angle into corret direction angle
+            # Convert stupid self-defined angle into correct direction angle
             corr_angle_array = 270 - angle_array
             corr_angle_array[corr_angle_array < 0] += 360
             data['Norm'] = norm_array
