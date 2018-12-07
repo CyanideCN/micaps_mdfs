@@ -4,8 +4,10 @@
 import struct
 import datetime
 import pickle
+import warnings
 
 import numpy as np
+from netCDF4 import Dataset
 
 def create_dict(_dict, index):
     if index not in _dict.keys():
@@ -35,7 +37,6 @@ class MDFS_Station:
         # Data block 2
         quantity_num = struct.unpack('h', f.read(2))[0] #294
         x = dict([(struct.unpack('h', f.read(2))[0], struct.unpack('h', f.read(2))[0]) for i in range(quantity_num)])
-        print(x)
         # Data block 3
         data = {}
         for i in ['ID', 'Lon', 'Lat']:
@@ -106,3 +107,53 @@ class MDFS_Grid:
             data['Norm'] = norm_array
             data['Direction'] = corr_angle_array
         self.data = data
+
+class NetCDFWriter:
+    def __init__(self, filepath):
+        self.da = Dataset(filepath, 'w', format='NETCDF4')
+        self.dimension = []
+        self.variable = []
+
+    def _create_dimension(self, dimension, shape):
+        self.da.createDimension(dimension, shape)
+        self.dimension.append(dimension)
+
+    def _create_variable(self, varname, variable, dimension, datatype='f8'):
+        if isinstance(dimension, (tuple, list)):
+            for i in dimension:
+                if d not in self.dimension:
+                    raise ValueError('Dimension {} not created'.format(dimension))
+        elif isinstance(dimension, str):
+            if dimension not in self.dimension:
+                raise ValueError('Dimension {} not created'.format(dimension))
+        self.da.createVariable(varname, datatype, dimension)
+        self.da.variables[varname][:] = variable
+        self.variable.append(varname)
+
+    def _create_attribute(self, attrname, value):
+        self.da.setncattr(attrname, value)
+
+    def close(self):
+        self.da.close()
+
+    def load_data(self, fileclass):
+        if isinstance(fileclass, MDFS_Station):
+            self._create_dimension('Station Data', len(fileclass.data['ID']))
+            self._create_variable('Longitude', fileclass.data['Lon'], 'Station Data')
+            self._create_variable('Latitude', fileclass.data['Lat'], 'Station Data')
+            self._create_variable('Station ID', fileclass.data['ID'], 'Station Data')
+            for i in fileclass.data.keys():
+                if isinstance(i, int):
+                    if len(fileclass.data[i]) != len(fileclass.data['ID']):
+                        warnings.warn('Variable Size not compatible, skipped', RuntimeWarning)
+                    else:
+                        self._create_variable('Element ID {}'.format(i), fileclass.data[i], 'Station Data')
+        elif isinstance(fileclass, MDFS_Grid):
+            self._create_dimension('Longitude', fileclass.data['Lon'][0])
+            self._create_dimension('Latitude', fileclass.data['Lat'][:, 0])
+            if fileclass.datatype == 4:
+                self._create_variable(fileclass.data_dsc, fileclass.data['Grid'], ('Longitude', 'Latitude'))
+            elif fileclass.datatype == 11:
+                self._create_variable(fileclass.data_dsc + ' Norm', fileclass.data['Norm'], ('Longitude', 'Latitude'))
+                self._create_variable(fileclass.data_dsc + ' Direction', fileclass.data['Direction'], ('Longitude', 'Latitude'))
+        self._create_attribute('Time', fileclass.utc_time.strftime('%Y-%m-%d %H:%M:%S'))
