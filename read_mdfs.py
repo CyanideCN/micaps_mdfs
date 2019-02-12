@@ -69,7 +69,10 @@ class MDFS_Station:
 
 class MDFS_Grid:
     def __init__(self, filepath):
-        f = open(filepath, 'rb')
+        if hasattr(filepath, 'read'):
+            f = filepath
+        else:
+            f = open(filepath, 'rb')
         if f.read(4).decode() != 'mdfs':
             raise ValueError('Not valid mdfs data')
         self.datatype = struct.unpack('h', f.read(2))[0]
@@ -121,7 +124,7 @@ class NetCDFWriter:
     def _create_variable(self, varname, variable, dimension, datatype='f8'):
         if isinstance(dimension, (tuple, list)):
             for i in dimension:
-                if d not in self.dimension:
+                if i not in self.dimension:
                     raise ValueError('Dimension {} not created'.format(dimension))
         elif isinstance(dimension, str):
             if dimension not in self.dimension:
@@ -149,8 +152,8 @@ class NetCDFWriter:
                     else:
                         self._create_variable('Element ID {}'.format(i), fileclass.data[i], 'Station Data')
         elif isinstance(fileclass, MDFS_Grid):
-            self._create_dimension('Longitude', fileclass.data['Lon'][0])
-            self._create_dimension('Latitude', fileclass.data['Lat'][:, 0])
+            self._create_dimension('Longitude', fileclass.data['Lon'].shape[0])
+            self._create_dimension('Latitude', fileclass.data['Lat'].shape[0])
             if fileclass.datatype == 4:
                 self._create_variable(fileclass.data_dsc, fileclass.data['Grid'], ('Longitude', 'Latitude'))
             elif fileclass.datatype == 11:
