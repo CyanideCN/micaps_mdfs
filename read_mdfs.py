@@ -8,6 +8,7 @@ import warnings
 
 import numpy as np
 from netCDF4 import Dataset
+import xarray as xr
 
 def create_dict(_dict, index):
     if index not in _dict.keys():
@@ -79,10 +80,10 @@ class MDFS_Grid:
         self.model_name = f.read(20).decode('gbk').replace('\x00', '')
         self.element = f.read(50).decode('gbk').replace('\x00', '')
         self.data_dsc = f.read(30).decode('gbk').replace('\x00', '')
-        self.level = struct.unpack('f', f.read(4))
+        self.level = struct.unpack('f', f.read(4))[0]
         year, month, day, hour, tz = struct.unpack('5i', f.read(20))
         self.utc_time = datetime.datetime(year, month, day, hour) - datetime.timedelta(hours=tz)
-        self.period = struct.unpack('i', f.read(4))
+        self.period = struct.unpack('i', f.read(4))[0]
         start_lon, end_lon, lon_spacing, lon_number = struct.unpack('3fi', f.read(16))
         start_lat, end_lat, lat_spacing, lat_number = struct.unpack('3fi', f.read(16))
         lon_array = np.arange(start_lon, end_lon + lon_spacing, lon_spacing)
@@ -110,6 +111,13 @@ class MDFS_Grid:
             data['Norm'] = norm_array
             data['Direction'] = corr_angle_array
         self.data = data
+        self.time = self.utc_time + datetime.timedelta(hours=self.period)
+
+    def to_xarray(self):
+        return xr.DataArray(self.data['Grid'], coords={'longitude':self.data['Lon'], 'latitude':self.data['Lat'], 'time':self.time},
+                            dims=['latitude', 'longitude'], attrs={'units':self.data_dsc, 'levels':self.level, 'name':self.element,
+                                                                   'model_name':self.model_name, 'time_bounds':self.period, 'initial_time':self.utc_time},
+                            name='{}_{:.0f}'.format(self.element, self.level))
 
 class NetCDFWriter:
     def __init__(self, filepath):
