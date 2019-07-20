@@ -7,14 +7,14 @@
 站点数据：
 
 ```python
-from read_mdfs import MDFS_Station
+from mdfs import Station
 import matplotlib.pyplot as plt
 import matplotlib.colors as ccolor
 import matplotlib.cm as cmx
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
-x = MDFS_Station(r'D:\20181028160000.000')
+x = Station(r'D:\20181028160000.000')
 lon = x.data['Lon'] # 经度
 lat = x.data['Lat'] # 纬度
 var = x.data[603] # 气象要素
@@ -29,7 +29,7 @@ ax.coastlines(resolution='10m')
 ax.add_feature(cfeature.BORDERS)
 plt.show()
 ```
-`MDFS_Station`类含有的属性：
+`Station`类含有的属性：
 `data_dsc`：描述信息
 `level`：数据层面
 `level_dsc`：层面描述信息
@@ -39,7 +39,7 @@ plt.show()
 网格数据：
 
 ```python
-from read_mdfs import MDFS_Grid
+from mdfs import Grid
 import numpy as np
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
@@ -47,7 +47,7 @@ import cartopy.feature as cfeature
 import metpy.calc as mpcalc
 from metpy.units import units
 filepath = r'D:\18110408.000'
-f = MDFS_Grid(filepath)
+f = Grid(filepath)
 lon = f.data['Lon'] # 经度
 lat = f.data['Lat'] # 纬度 PS:均为一维数组，使用前需np.meshgrid
 norm = f.data['Norm'] # 向量数据中的模长
