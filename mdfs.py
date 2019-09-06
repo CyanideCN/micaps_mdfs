@@ -19,9 +19,6 @@ def create_dict(_dict, index):
 
 corr_dtype = {1:'x', 2:'h', 3:'i', 4:'l', 5:'f', 6:'d', 7:'s'}
 corr_size = {1:1, 2:2, 3:4, 4:4, 5:4, 6:8, 7:1}
-buf = open('data_table.pickle', 'rb')
-var_table = pickle.load(buf)
-buf.close()
 
 def prepare_file(file):
     if hasattr(file, 'read'):
