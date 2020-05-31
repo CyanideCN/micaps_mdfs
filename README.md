@@ -36,6 +36,13 @@ plt.show()
 `utc_time`：数据时间（世界时），为`datetime.datetime`类型
 `data`：主体数据，为dict类型，含有的键值有`ID`（站号），`Lon`（经度），`Lat`（纬度）以及数据里对应的物理量数据的编号（见`dtype_link.xml`）
 
+由于站点类型数据是变长字节存储，纯Python实现的版本效率较低。`station.pyx`是cython实现的效率更高的版本，里面的`cStation`类是等效于`mdfs.py`里的`Station`类的，并且`cStation`类实现了`to_dataframe`方法，操作更为方便。
+
+编译`station.pyx`
+```bash
+python compile.py build_ext --inplace
+```
+
 网格数据：
 
 ```python
@@ -60,7 +67,7 @@ ax.add_feature(cfeature.BORDERS)
 plt.show()
 ```
 
-`MDFS_Grid`类含有的属性：
+`Grid`类含有的属性：
 `datatype`：文件类别
 `model_name`：模式名称
 `element`：物理量名称
