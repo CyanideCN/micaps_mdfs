@@ -13,9 +13,9 @@ import xarray as xr
 
 from table import id_dtype, id_name
 
-def create_dict(_dict, index):
+def create_dict(_dict, index, size):
     if index not in _dict.keys():
-        _dict[index] = list()
+        _dict[index] = [None] * size
 
 corr_dtype = {1:'x', 2:'h', 3:'i', 4:'q', 5:'f', 6:'d', 7:'s'}
 corr_size = {1:1, 2:2, 3:4, 4:8, 5:4, 6:8, 7:1}
@@ -48,7 +48,8 @@ class Station(MDFSFile):
         self.level_dsc = self._buf.read(50).decode('gbk').replace('\x00', '')
         year, month, day, hour, min_, sec, tz = struct.unpack('7i', self._buf.read(28))
         self.utc_time = datetime.datetime(year, month, day, hour, min_, sec) - datetime.timedelta(hours=tz)
-        self._buf.seek(100, 1)#288
+        id_type = struct.unpack('h', self._buf.read(2))[0]
+        self._buf.seek(98, 1)#288
         # Data block 1
         station_num = struct.unpack('i', self._buf.read(4))[0] #292
         # Data block 2
@@ -58,14 +59,22 @@ class Station(MDFSFile):
         # Data block 3
         data = {}
         for i in ['ID', 'Lon', 'Lat']:
-            create_dict(data, i)
+            create_dict(data, i, station_num)
         for i in x.keys():
-            create_dict(data, i)
-        for _ in range(station_num):
-            stid, stlon, stlat = struct.unpack('iff', self._buf.read(12))
-            data['ID'].append(stid)
-            data['Lon'].append(stlon)
-            data['Lat'].append(stlat)
+            if i % 2 != 0:
+                create_dict(data, i, station_num)
+        for idx in range(station_num):
+            if id_type != 1:
+                stid, stlon, stlat = struct.unpack('iff', self._buf.read(12))
+                data['ID'][idx] = stid
+                data['Lon'][idx] = stlon
+                data['Lat'][idx] = stlat
+            else:
+                id_length = struct.unpack('h', self._buf.read(2))[0]
+                data['ID'][idx] = self._buf.read(id_length).decode()
+                stlon, stlat = struct.unpack('ff', self._buf.read(8))
+                data['Lon'][idx] = stlon
+                data['Lat'][idx] = stlat
             q_num = struct.unpack('h', self._buf.read(2))[0]
             id_list = list()
             # iterate over q_num
@@ -80,10 +89,7 @@ class Station(MDFSFile):
                 var_value = struct.unpack(corr_dtype[var_dtype], self._buf.read(corr_size[var_dtype]))
                 if var_value and var_id % 2 != 0:
                     var_value = var_value[0]
-                    data[var_id].append(var_value)
-            for i in x.keys():
-                if i not in id_list:
-                    data[i].append(np.nan)
+                    data[var_id][idx] = var_value
         self.data = data
         self._buf.close()
 

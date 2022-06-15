@@ -42,7 +42,7 @@ class cStation(MDFSFile):
         super().__init__(file)
         buf = self._buf
         cdef:
-            short dtype, var_id, q_num
+            short dtype, var_id, q_num, id_type
             int station_num, quantity_num, stid, var_dtype, idx, year, month, day, hour, min_, sec, tz, __
             dict x, data
             float stlon, stlat
@@ -60,7 +60,8 @@ class cStation(MDFSFile):
         sec = _int(buf.read(4))
         tz = _int(buf.read(4))
         self.utc_time = datetime.datetime(year, month, day, hour, min_, sec) - datetime.timedelta(hours=tz)
-        buf.seek(100, 1)#288
+        id_type = _ushort(buf.read(2))
+        buf.seek(98, 1)#288
         # Data block 1
         station_num = _int(buf.read(4))
         # Data block 2
@@ -74,12 +75,20 @@ class cStation(MDFSFile):
             if i % 2 != 0:
                 create_dict(data, i, station_num)
         for idx in range(station_num):
-            stid = _int(buf.read(4))
-            stlon = _float(buf.read(4))
-            stlat = _float(buf.read(4))
-            data['ID'][idx] = stid
-            data['Lon'][idx] = stlon
-            data['Lat'][idx] = stlat
+            if id_type != 1:
+                stid = _int(buf.read(4))
+                stlon = _float(buf.read(4))
+                stlat = _float(buf.read(4))
+                data['ID'][idx] = stid
+                data['Lon'][idx] = stlon
+                data['Lat'][idx] = stlat
+            else:
+                id_length = _ushort(buf.read(2))
+                data['ID'][idx] = buf.read(id_length).decode()
+                stlon = _float(buf.read(4))
+                stlat = _float(buf.read(4))
+                data['Lon'][idx] = stlon
+                data['Lat'][idx] = stlat
             q_num = _ushort(buf.read(2))
             id_list = list()
             # iterate over q_num
